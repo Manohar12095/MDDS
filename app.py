@@ -8,8 +8,8 @@ import os
 # -----------------------------
 # CONFIG
 # -----------------------------
-MODEL_DRIVE_LINK = "YOUR_GOOGLE_DRIVE_LINK"  # <-- replace with your .h5 file link
-MODEL_PATH = "food_model.h5"
+MODEL_DRIVE_LINK = "https://drive.google.com/file/d/1Gtg0HpRvvX7zAn5N1e4JPJC4sfaU2SwL/view?usp=sharing"  # <-- replace with your .h5 file link
+MODEL_PATH = "food_rogonition_model.h5"
 IMG_SIZE = (128, 128)
 
 # Nutrition datasets
