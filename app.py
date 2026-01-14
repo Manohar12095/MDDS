@@ -1,15 +1,44 @@
 import streamlit as st
-import pandas as pd
-from tensorflow.keras.models import load_model
 import tensorflow as tf
+import numpy as np
+import pandas as pd
+import gdown
+import os
 
-# Load model and data
-model = load_model("food_recognition_model.h5")
-nutrition_df = pd.read_csv("data/nutrition_db.csv")
-mapping_df = pd.read_csv("data/dish_mapping.csv")
+# -----------------------------
+# CONFIG
+# -----------------------------
+MODEL_DRIVE_LINK = "YOUR_GOOGLE_DRIVE_LINK"  # <-- replace with your .h5 file link
+MODEL_PATH = "food_model.h5"
+IMG_SIZE = (128, 128)
 
+# Nutrition datasets
+nutrition_df = pd.read_csv("/content/drive/MyDrive/ML project/new/FOOD-DATA-GROUP1.csv")
+mapping_df = pd.read_csv("/content/drive/MyDrive/ML project/new/healthy_eating_dataset.csv")
+
+# -----------------------------
+# DOWNLOAD MODEL
+# -----------------------------
+if not os.path.exists(MODEL_PATH):
+    st.info("Downloading model from Google Drive...")
+    gdown.download(MODEL_DRIVE_LINK, MODEL_PATH, quiet=False)
+
+# -----------------------------
+# LOAD MODEL
+# -----------------------------
+model = tf.keras.models.load_model(MODEL_PATH)
+
+# Load class names (adjust if you saved separately)
+# Example: if you trained with tf.keras.utils.image_dataset_from_directory
+# class_names = train_ds.class_names
+# For demo, define manually:
+class_names = sorted(nutrition_df['food'].unique().tolist())
+
+# -----------------------------
+# PREDICTION FUNCTION
+# -----------------------------
 def predict_food(image):
-    img = tf.keras.utils.load_img(image, target_size=(128,128))
+    img = tf.keras.utils.load_img(image, target_size=IMG_SIZE)
     img_array = tf.keras.utils.img_to_array(img)
     img_array = tf.expand_dims(img_array, 0)
 
@@ -19,20 +48,35 @@ def predict_food(image):
     confidence = 100 * np.max(score)
 
     # Nutrition lookup
-    food_id = mapping_df.loc[mapping_df["dish_label"] == predicted_class, "food_id"].values
-    if len(food_id) > 0:
-        row = nutrition_df.loc[nutrition_df["food_id"] == food_id[0]].iloc[0]
-        nutrients = row.to_dict()
-    else:
-        nutrients = "Not found"
+    pred_clean = predicted_class.lower().strip()
+    nutrition_df['food_clean'] = nutrition_df['food'].str.lower().str.strip()
+    mapping_df['meal_name_clean'] = mapping_df['meal_name'].str.lower().str.strip()
+
+    nutrients = {}
+    try:
+        row = nutrition_df.loc[nutrition_df['food_clean'] == pred_clean].iloc[0]
+        nutrients.update({
+            "Calories": row.get("Caloric Value"),
+            "Protein": row.get("Protein"),
+            "Carbohydrates": row.get("Carbohydrates"),
+            "Fat": row.get("Fat")
+        })
+    except:
+        nutrients = "Not found in nutrition DB"
 
     return predicted_class, confidence, nutrients
 
-# Streamlit UI
-st.title("🍽️ Food Recognition App")
-img_file = st.file_uploader("Upload food image", type=["jpg","png"])
+# -----------------------------
+# STREAMLIT UI
+# -----------------------------
+st.title("🍲 Food Recognition & Nutrition App")
 
-if img_file:
-    food, conf, nutri = predict_food(img_file)
-    st.write("Predicted:", food, f"(Confidence: {conf:.2f}%)")
-    st.write("Nutrition:", nutri)
+uploaded_file = st.file_uploader("Upload a food image", type=["jpg", "jpeg", "png"])
+if uploaded_file is not None:
+    st.image(uploaded_file, caption="Uploaded Image", use_column_width=True)
+
+    food, conf, nutri = predict_food(uploaded_file)
+    st.write(f"**Predicted Dish:** {food}")
+    st.write(f"**Confidence:** {conf:.2f}%")
+    st.write("**Nutrition Info:**")
+    st.write(nutri)
